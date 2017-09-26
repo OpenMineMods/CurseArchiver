@@ -2,34 +2,24 @@ from argparse import ArgumentParser
 from CurseMetaDB.DB import DB
 from json import loads, dumps
 from sys import exit
-from requests import get
 from os.path import isfile, isdir, join
-from os import makedirs
+from os import makedirs, remove
+
 from hashlib import sha1
+import urllib.request
+import multiprocessing
 
 parser = ArgumentParser()
 
-parser.add_argument("metafile", help="Path to latest cursemeta json file", type=str)
+parser.add_argument("metafile", help="Path to latest CurseMetaDB json file", type=str)
 
 parser.add_argument("-m", "--include-mods", action="store_true")
 parser.add_argument("-p", "--include-mod-packs", action="store_true")
 parser.add_argument("-t", "--include-texture-packs", action="store_true")
 parser.add_argument("-w", "--include-worlds", action="store_true")
-parser.add_argument("-n", "--no-hash", action="store_true")
+parser.add_argument("-j", "--threads", default=multiprocessing.cpu_count(), type=int)
 
 args = parser.parse_args()
-
-
-def download_file(url: str, out: str):
-    """Download a file from `url` to `filepath/name`"""
-    r = get(url, stream=True)
-    print(" Size: {}".format(r.headers.get("content-length")), end='')
-    fs = r.headers.get("content-length")
-    with open(out, 'wb') as f:
-        for chunk in r.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
-    return fs
 
 types = list()
 if args.include_mods:
@@ -84,15 +74,35 @@ for i in types:
     if not isdir(join("downloaded_files", i)):
         makedirs(join("downloaded_files", i))
 
-for x, file in enumerate(files):
-    fdr = file_types[file["id"]]
-    pt = join("downloaded_files", fdr)
-    print("\r\bDownloading file {}/{} ({}/{})".format(x + 1, lenf, fdr, file["filename"]), end='')
-    fs = download_file(file["url"], join(pt, file["filename"]))
-    dat[file["id"]] = {"hash": None, "size": fs}
-    if not args.no_hash:
-        with open(join(pt, file["filename"]), 'rb') as f:
-            d = f.read()
-            dat[file["id"]]["hash"] = sha1(d).hexdigest()
 
+def process(args):
+    x, file = args
+    fdr = file_types[file["id"]]
+    tg = join("downloaded_files", fdr, file["filename"])
+    print("Downloading file {}/{} ({}/{})".format(x + 1, lenf, fdr, file["filename"]))
+    try:
+        urllib.request.urlretrieve(file["url"], tg)
+        with open(tg, 'rb') as f:
+            d = f.read()
+            dat[file["id"]] = {"hash": sha1(d).hexdigest(), "size": len(d)}
+    except KeyboardInterrupt:
+        if isfile(tg):  # avoid half-done files
+            try:
+                remove(tg)
+            except:
+                pass
+        raise
+    except:
+        print("Error on downloading/hashing", file["id"])
+        if isfile(tg):  # avoid half-done files
+            try:
+                remove(tg)
+            except:
+                pass
+
+
+try:
+    with multiprocessing.Pool(args.threads) as p:
+        p.map(process, enumerate(files))
+finally:
     open("data.json", "w").write(dumps(dat, separators=(",", ":")))
