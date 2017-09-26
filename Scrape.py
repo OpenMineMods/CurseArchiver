@@ -4,12 +4,13 @@ from json import loads, dumps
 from sys import exit
 from os.path import isfile, isdir, join
 from os import makedirs, remove, statvfs, getcwd
-import tqdm
-
 from hashlib import sha1
+
 import urllib.request
 import urllib.parse
 import multiprocessing
+import tqdm
+import sys
 
 parser = ArgumentParser()
 
@@ -96,7 +97,7 @@ def process(file):
                 pass
         raise
     except:
-        print("Error on downloading/hashing", file["id"], url)
+        print("Error on downloading/hashing", file["id"], url, file=sys.stderr, flush=True)
         if isfile(tg):  # avoid half-done files
             try:
                 remove(tg)
