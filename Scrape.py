@@ -8,6 +8,7 @@ import tqdm
 
 from hashlib import sha1
 import urllib.request
+import urllib.parse
 import multiprocessing
 
 parser = ArgumentParser()
@@ -79,8 +80,11 @@ for i in types:
 
 def process(file):
     tg = join("downloaded_files", file_types[file["id"]], file["filename"])
+    url = file["url"]
     try:
-        urllib.request.urlretrieve(urllib.request.quote(file["url"]), tg)
+        _1, _2, _3, _4, _5 = urllib.parse.urlsplit(url)
+        url = urllib.parse.urlunsplit((_1, _2, urllib.parse.quote(_3), _4, _5))
+        urllib.request.urlretrieve(url, tg)
         with open(tg, 'rb') as f:
             d = f.read()
             return file["id"], {"hash": sha1(d).hexdigest(), "size": len(d)}
@@ -92,7 +96,7 @@ def process(file):
                 pass
         raise
     except:
-        print("Error on downloading/hashing", file["id"], file["url"])
+        print("Error on downloading/hashing", file["id"], url)
         if isfile(tg):  # avoid half-done files
             try:
                 remove(tg)
