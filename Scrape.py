@@ -97,7 +97,7 @@ def process(file):
                 pass
         raise
     except:
-        print("Error on downloading/hashing", file["id"], url, file=sys.stderr, flush=True)
+        tqdm.tqdm.write("Error on downloading/hashing {} {}".format(file["id"], url))
         if isfile(tg):  # avoid half-done files
             try:
                 remove(tg)
