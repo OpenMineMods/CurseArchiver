@@ -80,7 +80,7 @@ for i in types:
 
 
 def process(file):
-    tg = join("downloaded_files", file_types[file["id"]], file["filename"])
+    tg = join("downloaded_files", file_types[file["id"]], "{}-{}".format(file["id"], file["filename"]))
     url = file["url"]
     try:
         _1, _2, _3, _4, _5 = urllib.parse.urlsplit(url)
@@ -120,6 +120,5 @@ try:
                         raise Exception("File system < 10% free space stopping as a precaution (" + percent + "%)")
 
                 pbar.update()
-    p.join()
 finally:
     open("data.json", "w").write(dumps(dat, separators=(",", ":")))
