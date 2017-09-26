@@ -3,7 +3,8 @@ from CurseMetaDB.DB import DB
 from json import loads, dumps
 from sys import exit
 from os.path import isfile, isdir, join
-from os import makedirs, remove
+from os import makedirs, remove, statvfs, getcwd
+import tqdm
 
 from hashlib import sha1
 import urllib.request
@@ -18,6 +19,7 @@ parser.add_argument("-p", "--include-mod-packs", action="store_true")
 parser.add_argument("-t", "--include-texture-packs", action="store_true")
 parser.add_argument("-w", "--include-worlds", action="store_true")
 parser.add_argument("-j", "--threads", default=multiprocessing.cpu_count(), type=int)
+parser.add_argument("--no-check-diskspace", action="store_true")
 
 args = parser.parse_args()
 
@@ -75,16 +77,13 @@ for i in types:
         makedirs(join("downloaded_files", i))
 
 
-def process(args):
-    x, file = args
-    fdr = file_types[file["id"]]
-    tg = join("downloaded_files", fdr, file["filename"])
-    print("Downloading file {}/{} ({}/{})".format(x + 1, lenf, fdr, file["filename"]))
+def process(file):
+    tg = join("downloaded_files", file_types[file["id"]], file["filename"])
     try:
         urllib.request.urlretrieve(file["url"], tg)
         with open(tg, 'rb') as f:
             d = f.read()
-            dat[file["id"]] = {"hash": sha1(d).hexdigest(), "size": len(d)}
+            return file["id"], {"hash": sha1(d).hexdigest(), "size": len(d)}
     except KeyboardInterrupt:
         if isfile(tg):  # avoid half-done files
             try:
@@ -93,7 +92,7 @@ def process(args):
                 pass
         raise
     except:
-        print("Error on downloading/hashing", file["id"])
+        print("Error on downloading/hashing", file["id"], file["url"])
         if isfile(tg):  # avoid half-done files
             try:
                 remove(tg)
@@ -103,6 +102,18 @@ def process(args):
 
 try:
     with multiprocessing.Pool(args.threads) as p:
-        p.map(process, enumerate(files))
+        with tqdm.tqdm(total=len(files)) as pbar:
+            for i, r in tqdm.tqdm(enumerate(p.imap_unordered(process, files))):
+                dat[r[0]] = r[1]
+                if i % 100 == 0:
+                    open("data.json", "w").write(dumps(dat, separators=(",", ":")))
+
+                    statvfs_r = statvfs(getcwd())
+                    if not args.no_check_diskspace and (statvfs_r.f_bavail / statvfs_r.f_blocks) < 0.10:
+                        percent = str((statvfs_r.f_bavail / statvfs_r.f_blocks)*100)
+                        raise Exception("File system < 10% free space stopping as a precaution (" + percent + "%)")
+
+                pbar.update()
+    p.join()
 finally:
     open("data.json", "w").write(dumps(dat, separators=(",", ":")))
