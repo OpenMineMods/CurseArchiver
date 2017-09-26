@@ -80,7 +80,7 @@ for i in types:
 def process(file):
     tg = join("downloaded_files", file_types[file["id"]], file["filename"])
     try:
-        urllib.request.urlretrieve(file["url"], tg)
+        urllib.request.urlretrieve(urllib.request.quote(file["url"]), tg)
         with open(tg, 'rb') as f:
             d = f.read()
             return file["id"], {"hash": sha1(d).hexdigest(), "size": len(d)}
@@ -104,7 +104,8 @@ try:
     with multiprocessing.Pool(args.threads) as p:
         with tqdm.tqdm(total=len(files)) as pbar:
             for i, r in tqdm.tqdm(enumerate(p.imap_unordered(process, files))):
-                dat[r[0]] = r[1]
+                if r is not None:
+                    dat[r[0]] = r[1]
                 if i % 100 == 0:
                     open("data.json", "w").write(dumps(dat, separators=(",", ":")))
 
