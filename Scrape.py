@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from argparse import ArgumentParser
 from CurseMetaDB.DB import DB
 from json import loads, dumps
@@ -21,7 +23,8 @@ parser.add_argument("-p", "--include-mod-packs", action="store_true")
 parser.add_argument("-t", "--include-texture-packs", action="store_true")
 parser.add_argument("-w", "--include-worlds", action="store_true")
 parser.add_argument("-j", "--threads", default=multiprocessing.cpu_count(), type=int)
-parser.add_argument("--no-check-diskspace", action="store_true")
+parser.add_argument("-n", "--no-check-diskspace", action="store_true")
+parser.add_argument("-d", "--diskspace-limit", default=90, type=int)
 
 args = parser.parse_args()
 
@@ -115,9 +118,9 @@ try:
                     open("data.json", "w").write(dumps(dat, separators=(",", ":")))
 
                     statvfs_r = statvfs(getcwd())
-                    if not args.no_check_diskspace and (statvfs_r.f_bavail / statvfs_r.f_blocks) < 0.10:
+                    if not args.no_check_diskspace and (statvfs_r.f_bavail / statvfs_r.f_blocks) < 1 / (100 - args.diskspace_limit):
                         percent = str((statvfs_r.f_bavail / statvfs_r.f_blocks)*100)
-                        raise Exception("File system < 10% free space stopping as a precaution (" + percent + "%)")
+                        raise Exception("File system < {}% free space stopping as a precaution ({}%)".format(100 - args.diskspace_limit, percent))
 
                 pbar.update()
 finally:
