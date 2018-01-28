@@ -28,39 +28,33 @@ parser.add_argument("-d", "--diskspace-limit", default=90, type=int)
 
 args = parser.parse_args()
 
+PROJECT_TYPES = ["modpack", "mod", "texturepack", "world"]
+
 types = list()
 if args.include_mods:
-    types.append("mod")
+    types.append(1)
 if args.include_mod_packs:
-    types.append("modpack")
+    types.append(0)
 if args.include_texture_packs:
-    types.append("texturepack")
+    types.append(2)
 if args.include_worlds:
-    types.append("world")
+    types.append(3)
 
-print(types)
 if len(types) < 1:
     print("Nothing to do!")
     exit(1)
 
 print("Loading DB, this may take a while...")
-db = DB(loads(open(args.metafile).read()))
+meta = loads(open(args.metafile).read())
 
-to_dl = list()
-for ptype in types:
-    to_dl += db.popular[ptype]
+files = [i for i in meta["files"].values() if meta["projects"][str(i["project"])]["type"] in types]
 
-print("Found {} projects".format(len(to_dl)))
+file_types = {}
 
-files = list()
-file_types = dict()
-for proj in to_dl:
-    proj = db.get_project(proj)
-    for f in proj["files"]:
-        files.append(f)
-        file_types[f] = proj["type"]
+for f in files:
+    file_types[f["id"]] = PROJECT_TYPES[meta["projects"][str(f["project"])]["type"]]
 
-files = list(set(files))
+print("Found {} files".format(len(files)))
 
 print("Loading existing data")
 
@@ -69,7 +63,7 @@ if not isfile("data.json"):
 
 dat = loads(open("data.json").read())
 
-files = [db.get_file(i) for i in files if str(i) not in dat.keys()]
+files = [i for i in files if str(i["id"]) not in dat.keys()]
 lenf = len(files)
 
 print("Found {} new files".format(lenf))
@@ -78,8 +72,8 @@ if not isdir("downloaded_files"):
     makedirs("downloaded_files")
 
 for i in types:
-    if not isdir(join("downloaded_files", i)):
-        makedirs(join("downloaded_files", i))
+    if not isdir(join("downloaded_files", PROJECT_TYPES[i])):
+        makedirs(join("downloaded_files", PROJECT_TYPES[i]))
 
 
 def process(file):
