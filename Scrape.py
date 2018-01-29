@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
-from CurseMetaDB.DB import DB
 from json import loads, dumps
 from sys import exit
 from os.path import isfile, isdir, join
